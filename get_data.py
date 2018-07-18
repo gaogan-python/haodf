@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+﻿# -*- coding: utf-8 -*-
 import json
 import requests
 import time
@@ -106,16 +106,20 @@ def get_total_page(t_href):
     else:
         return False
 def get_article_list(page_href):
-    resp = connect_method(page_href)
-    content_links = []
-    if(resp):
-        soup = BeautifulSoup(resp.text, 'html.parser')
-        select_links = soup.select("div.w880.fl div.dis_article h2 a")
-        for select_link in select_links:
-            content_links.append('https:'+select_link['href'])
-        return content_links
-    else:
-        return False
+    retry_times = 0
+    while(retry_times < 3):
+        resp = connect_method(page_href)
+        content_links = []
+        if(resp):
+            soup = BeautifulSoup(resp.text, 'html.parser')
+            select_links = soup.select("div.dis_article h2 a")
+            for select_link in select_links:
+                content_links.append('https:'+select_link['href'])
+            return content_links
+        else:
+            print('retry %d times, href: %s' % (retry_times, page_href))
+            retry_times = retry_times + 1
+    return False
 def get_article_from_download_map(json_name, o_json_name, countinue_main, countinue_inside):
     download_map = {}
     article_link_map = {}
@@ -139,11 +143,21 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
                 for page_i in range(total_page):
                     page_href = t_href + '/wz_0_0_' + str(page_i+1) + '.htm'
                     print(page_href)
-                    content_links.extend(get_article_list(page_href))
+                    tmp = get_article_list(page_href)
+                    if(tmp):
+                        print('Get %d article links.' % (len(tmp)))
+                        content_links.extend(tmp)
+                    else:
+                        print('fail, write href to txt')
+                        with open('failhref_file.txt', 'a') as the_file:
+                            the_file.write(page_href+'\n')
+                    #break
                 article_link_map[key][i_key] = content_links
             else:
                 print('--jump:%s'%(i_key))
                 continue
+            #break
+        #break
     with open(o_json_name, 'w') as outfile:
         json.dump(article_link_map, outfile)
 if __name__ == "__main__":
