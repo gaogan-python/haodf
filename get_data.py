@@ -126,7 +126,7 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
     download_map = {}
     article_link_map = {}
     start_download_flag = False
-    with open(json_name, 'r') as infile:
+    with open(json_name, 'r', encoding='utf8') as infile:
         download_map = json.load(infile)
     for key in download_map.keys():
         inside_map = download_map[key]
@@ -166,8 +166,8 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
                 break
         if(start_download_flag):
             if(article_link_map):
-                with open(o_json_name+'_'+key+'.json', 'w') as outfile:
-                    json.dump(article_link_map, outfile)
+                with open(o_json_name+'_'+key+'.json', 'w', encoding='utf8') as outfile:
+                    json.dump(article_link_map, outfile, ensure_ascii=False)
             else:
                 print('---%s no article_link_map' % (key))
         if(test_flag):
