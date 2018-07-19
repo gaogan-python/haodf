@@ -7,7 +7,7 @@ import sys
 import os.path
 
 main_href = 'https://www.haodf.com'
-test_flag = True
+test_flag = False
 def connect_method(target_url):
     timeout = 10
     sleep_t = 0.5
@@ -283,3 +283,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    # python3 get_data.py link 0 >> log_0.txt &
