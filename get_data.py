@@ -130,7 +130,6 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
         download_map = json.load(infile)
     for key in download_map.keys():
         inside_map = download_map[key]
-        article_link_map[key] = {}
         print('start main:%s'%(key))
         for i_key in inside_map.keys():
             t_href = inside_map[i_key]
@@ -157,6 +156,8 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
                             the_file.write(page_href+'\n')
                     if(test_flag):
                         break
+                if(not key in article_link_map.keys()):
+                    article_link_map[key] = {}
                 article_link_map[key][i_key] = content_links
             else:
                 if(test_flag):
