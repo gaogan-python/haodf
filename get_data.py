@@ -273,6 +273,11 @@ def main():
                 countinue_inside = None
                 end_main = None
                 end_inside = None
+            elif(i == -2):
+                countinue_main = '中医学'
+                countinue_inside = '尿毒症'
+                end_main = None
+                end_inside = None
             else:
                 countinue_main = part_list[i][0]
                 countinue_inside = part_list[i][1]
