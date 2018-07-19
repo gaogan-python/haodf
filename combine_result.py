@@ -8,11 +8,16 @@ import re
 
 def remove_crlf(s):
     r1 = u'[a-zA-Z0-9’!"#$%&\'()*+,-./:;<=>?@，。?★、…【】《》？“”‘’！[\\]^_`{|}●~]+'
-    r2 = u'[\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F\u1C80-\u1C8F]+' # 俄文 西裏爾字母
+    # r2 = u'[\u0400-\u04FF\u0500-\u052F\u2DE0-\u2DFF\uA640-\uA69F\u1C80-\u1C8F]+' # 俄文 西裏爾字母
+    r2 = u'[\u0000-\u4dff\u9fa6-\uffff]+'
     s = s.replace('\r\n', ' ')
     s = s.replace('\n', '')
     s = re.sub(r1, ' ', s)
     s = re.sub(r2, ' ', s)
+
+    #unicode chinese
+    # re_words = re.compile(u"[\u4e00-\u9fa5]+")
+    # s = re.findall(re_words, s)       # 查询出所有的匹配字符串
     return s.strip()
 
 def main():
