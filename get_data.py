@@ -121,24 +121,17 @@ def get_article_list(page_href):
         return False
 def get_main_json_filename(json_root, file_root, key):
     return json_root+file_root+'_'+key+'.json'
-def get_article_from_download_map(download_map_file, json_root_name, countinue_main, countinue_inside, end_main, end_inside):
+def get_article_from_download_map(download_map_file, json_root_name):
     download_map = {}
-    start_download_flag = False
     with open(download_map_file, 'r', encoding='utf8') as infile:
         download_map = json.load(infile)
     for key in download_map.keys():
         article_link_map = {}
         inside_map = download_map[key]
-        print('start main:%s'%(key))
-        for i_key in inside_map.keys():
-            t_href = inside_map[i_key]
-            if (not countinue_main):
-                start_download_flag = True
-            if (not start_download_flag) and (key == countinue_main) and (i_key == countinue_inside):
-                start_download_flag = True
-            if (start_download_flag) and (key == end_main) and (i_key == end_inside):
-                start_download_flag = False
-            if start_download_flag:
+        print('**start main:%s'%(key))
+        if(not os.path.isfile(get_main_json_filename(json_root_name, 'article_link_map', key))):
+            for i_key in inside_map.keys():
+                t_href = inside_map[i_key]
                 print('--start inside:%s, href:%s'%(i_key,t_href))
                 t_href = t_href[:t_href.rfind('.')] # remove '.htm'
                 total_page = get_total_page(t_href)
@@ -154,26 +147,25 @@ def get_article_from_download_map(download_map_file, json_root_name, countinue_m
                     else:
                         print('fail, write href to txt')
                         with open('failhref_file.txt', 'a') as the_file:
-                            the_file.write(page_href+'\n')
+                            the_file.write(key+','+i_key+','+page_href+'\n')
                     if(test_flag):
                         break
                 if(not key in article_link_map.keys()):
                     article_link_map[key] = {}
                 article_link_map[key][i_key] = content_links
-            else:
                 if(test_flag):
-                    print('--jump:%s'%(i_key))
-                continue
+                    break
+        else:
             if(test_flag):
-                break
-        if(start_download_flag):
-            if(article_link_map):
-                with open(get_main_json_filename(json_root_name, 'article_link_map', key), 'w', encoding='utf8') as outfile:
-                    json.dump(article_link_map, outfile, ensure_ascii=False)
-            else:
-                print('---%s no article_link_map' % (key))
-        if(test_flag):
-            break
+                print('**jump main:%s'%(key))
+            continue
+        if(article_link_map):
+            with open(get_main_json_filename(json_root_name, 'article_link_map', key), 'w', encoding='utf8') as outfile:
+                json.dump(article_link_map, outfile, ensure_ascii=False)
+        else:
+            print('---%s no article_link_map' % (key))
+        # if(test_flag):
+        #     break
 def get_article_contect(target_url):
     resp = connect_method(target_url)
     result_map = {}
@@ -263,6 +255,7 @@ def main():
     if(method == 'map'):
         download_map2json(download_map_file)
     elif(method == 'link'):
+        '''
         part_list=[['儿科学','小儿感冒'],['骨外科','足部骨折'],['皮肤性病科','皮肤过敏'],['中医学','月经失调'],['康复医学科','颈椎病'],['营养科','营养不良']]
         if(len(sys.argv) < 3):
             print('pls set part number(0~5)')
@@ -287,7 +280,8 @@ def main():
                 else:
                     end_main = part_list[i+1][0]
                     end_inside = part_list[i+1][1]
-            get_article_from_download_map(download_map_file, article_link_map_root, countinue_main, countinue_inside, end_main, end_inside)
+        '''
+        get_article_from_download_map(download_map_file, article_link_map_root)
     elif(method == 'content'):
         get_article_content_from_link(download_map_file, article_link_map_root, main_article_root)
     else:
@@ -295,4 +289,4 @@ def main():
 
 if __name__ == "__main__":
     main()
-    # python3 get_data.py link 0 >> log_0.txt &
+    # python3 get_data.py link >> log_0.txt &
