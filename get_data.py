@@ -3,8 +3,10 @@ import json
 import requests
 import time
 from bs4 import BeautifulSoup
+import sys
 
 main_href = 'https://www.haodf.com'
+test_flag = False
 def connect_method(target_url):
     timeout = 10
     sleep_t = 0.5
@@ -120,7 +122,7 @@ def get_article_list(page_href):
             print('retry %d times, href: %s' % (retry_times, page_href))
             retry_times = retry_times + 1
     return False
-def get_article_from_download_map(json_name, o_json_name, countinue_main, countinue_inside):
+def get_article_from_download_map(json_name, o_json_name, countinue_main, countinue_inside, end_main, end_inside):
     download_map = {}
     article_link_map = {}
     start_download_flag = False
@@ -134,6 +136,8 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
             t_href = inside_map[i_key]
             if (not start_download_flag) and (key == countinue_main) and (i_key == countinue_inside):
                 start_download_flag = True
+            if (start_download_flag) and (key == end_main) and (i_key == end_inside):
+                start_download_flag = False
             if start_download_flag:
                 print('--start inside:%s, href:%s'%(i_key,t_href))
                 t_href = t_href[:t_href.rfind('.')] # remove '.htm'
@@ -151,21 +155,38 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
                         print('fail, write href to txt')
                         with open('failhref_file.txt', 'a') as the_file:
                             the_file.write(page_href+'\n')
-                    #break
+                    if(test_flag):
+                        break
                 article_link_map[key][i_key] = content_links
             else:
-                print('--jump:%s'%(i_key))
+                if(test_flag):
+                    print('--jump:%s'%(i_key))
                 continue
-            #break
-        #break
-    with open(o_json_name, 'w') as outfile:
-        json.dump(article_link_map, outfile)
+            if(test_flag):
+                break
+        if(start_download_flag):
+            if(article_link_map):
+                with open(o_json_name+'_'+key+'.json', 'w') as outfile:
+                    json.dump(article_link_map, outfile)
+            else:
+                print('---%s no article_link_map' % (key))
+        if(test_flag):
+            break
 if __name__ == "__main__":
     download_map_file = 'data/download_map.json'
-    article_link_map_file = 'data/article_link_map.json'
+    article_link_map_file = 'data/article_link/article_link_map'
 
     # download_map2json(download_map_file)
+    part_list=[['儿科学','小儿感冒'],['骨外科','足部骨折'],['皮肤性病科','皮肤过敏'],['中医学','月经失调'],['康复医学科','颈椎病'],['营养科','营养不良']]
 
-    countinue_main = '儿科学'
-    countinue_inside = '小儿感冒'
-    get_article_from_download_map(download_map_file, article_link_map_file, countinue_main, countinue_inside)
+    i=int(sys.argv[1])
+    countinue_main = part_list[i][0]
+    countinue_inside = part_list[i][1]
+    if(i+1 >= len(part_list)):
+        end_main = None
+        end_inside = None
+    else:
+        end_main = part_list[i+1][0]
+        end_inside = part_list[i+1][1]
+    # time.sleep(120)
+    get_article_from_download_map(download_map_file, article_link_map_file, countinue_main, countinue_inside, end_main, end_inside)
