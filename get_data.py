@@ -4,9 +4,10 @@ import requests
 import time
 from bs4 import BeautifulSoup
 import sys
+import os.path
 
 main_href = 'https://www.haodf.com'
-test_flag = False
+test_flag = True
 def connect_method(target_url):
     timeout = 10
     sleep_t = 0.5
@@ -40,26 +41,26 @@ def connect_method(target_url):
             'Content-Type': 'text/html',
             'Connection': 'keep-alive'
             }
-    try:
-        resp = requests.get(
-            url = target_url, timeout=timeout, verify=True, headers=header #, cookies=cookie
-        )
-    except requests.exceptions.ReadTimeout:
-        print('timeout, sleep 10 sec')
-        time.sleep(10)
-        resp = requests.get(
-            url = target_url, timeout=timeout, verify=True, headers=header #, cookies=cookie
-        )
-
-    if resp.status_code != 200:
-        print(resp)
-        print(resp.request.headers)
-        print(resp.headers)
-        print('invalid url:', resp.url)
-        time.sleep(sleep_t)
-        return False
-    else:
-        return resp
+    retry_times = 0
+    resp = False
+    while(retry_times < 3):
+        try:
+            resp = requests.get(
+                url = target_url, timeout=timeout, verify=True, headers=header #, cookies=cookie
+            )
+        except requests.exceptions.ReadTimeout:
+            print('timeout, sleep 10 sec')
+            time.sleep(10)
+            resp = requests.get(
+                url = target_url, timeout=timeout, verify=True, headers=header #, cookies=cookie
+            )
+        if(resp.status_code == 200):
+            return resp
+        else:
+            print('retry %d times, href: %s' % (retry_times, target_url))
+            retry_times = retry_times + 1
+    print('fail url:', target_url)
+    return False
 def get_main_map(target_url):
     resp = connect_method(target_url)
     result_map = {}
@@ -108,27 +109,25 @@ def get_total_page(t_href):
     else:
         return False
 def get_article_list(page_href):
-    retry_times = 0
-    while(retry_times < 3):
-        resp = connect_method(page_href)
-        content_links = []
-        if(resp):
-            soup = BeautifulSoup(resp.text, 'html.parser')
-            select_links = soup.select("div.dis_article h2 a")
-            for select_link in select_links:
-                content_links.append('https:'+select_link['href'])
-            return content_links
-        else:
-            print('retry %d times, href: %s' % (retry_times, page_href))
-            retry_times = retry_times + 1
-    return False
-def get_article_from_download_map(json_name, o_json_name, countinue_main, countinue_inside, end_main, end_inside):
+    resp = connect_method(page_href)
+    content_links = []
+    if(resp):
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        select_links = soup.select("div.dis_article h2 a")
+        for select_link in select_links:
+            content_links.append('https:'+select_link['href'])
+        return content_links
+    else:
+        return False
+def get_main_json_filename(json_root, file_root, key):
+    return json_root+file_root+'_'+key+'.json'
+def get_article_from_download_map(download_map_file, json_root_name, countinue_main, countinue_inside, end_main, end_inside):
     download_map = {}
-    article_link_map = {}
     start_download_flag = False
-    with open(json_name, 'r', encoding='utf8') as infile:
+    with open(download_map_file, 'r', encoding='utf8') as infile:
         download_map = json.load(infile)
     for key in download_map.keys():
+        article_link_map = {}
         inside_map = download_map[key]
         print('start main:%s'%(key))
         for i_key in inside_map.keys():
@@ -167,27 +166,120 @@ def get_article_from_download_map(json_name, o_json_name, countinue_main, counti
                 break
         if(start_download_flag):
             if(article_link_map):
-                with open(o_json_name+'_'+key+'.json', 'w', encoding='utf8') as outfile:
+                with open(get_main_json_filename(json_root_name, 'article_link_map', key), 'w', encoding='utf8') as outfile:
                     json.dump(article_link_map, outfile, ensure_ascii=False)
             else:
                 print('---%s no article_link_map' % (key))
-        if(test_flag):
-            break
-if __name__ == "__main__":
-    download_map_file = 'data/download_map.json'
-    article_link_map_file = 'data/article_link/article_link_map'
-
-    # download_map2json(download_map_file)
-    part_list=[['儿科学','小儿感冒'],['骨外科','足部骨折'],['皮肤性病科','皮肤过敏'],['中医学','月经失调'],['康复医学科','颈椎病'],['营养科','营养不良']]
-
-    i=int(sys.argv[1])
-    countinue_main = part_list[i][0]
-    countinue_inside = part_list[i][1]
-    if(i+1 >= len(part_list)):
-        end_main = None
-        end_inside = None
+        # if(test_flag):
+        #     break
+def get_article_contect(target_url):
+    resp = connect_method(target_url)
+    result_map = {}
+    if resp:
+        soup = BeautifulSoup(resp.text, 'html.parser')
+        title_p = soup.select("p.f22.fyhei.tc.pb5")
+        title_name = ''
+        if(title_p):
+            title_name = title_p[0].text
+        author_p = soup.select("a.article_writer")
+        author_name = ''
+        if(author_p):
+            author_name = author_p[0].text
+        content_p = soup.select("div.pb20.article_detail")
+        content = ''
+        if(content_p):
+            content = content_p[0].text
+        else:
+            return False # no contect
+        buy_btn_p = soup.select("a.buy-btn")
+        is_buy = False
+        if(buy_btn_p):
+            is_buy = True
+        result_map['title']=title_name
+        result_map['author']=author_name
+        result_map['content']=content
+        result_map['is_buy']=is_buy
+        result_map['href']=target_url
+        return result_map
     else:
-        end_main = part_list[i+1][0]
-        end_inside = part_list[i+1][1]
-    # time.sleep(120)
-    get_article_from_download_map(download_map_file, article_link_map_file, countinue_main, countinue_inside, end_main, end_inside)
+        return False
+def get_article_content_from_link(download_map_file, article_link_map_root, main_article_root):
+    download_map = {}
+    start_download_flag = False
+    with open(download_map_file, 'r', encoding='utf8') as infile:
+        download_map = json.load(infile)
+    for key in download_map.keys():
+        inside_map = download_map[key]
+        print('start main:%s'%(key))
+        main_article_link_f = get_main_json_filename(article_link_map_root, 'article_link_map', key)
+        if(os.path.isfile(main_article_link_f)):
+            main_article_link_json = ''
+            with open(main_article_link_f, 'r', encoding='utf8') as infile:
+                main_article_link_json = json.load(infile)
+            if(not key in main_article_link_json.keys()):
+                print('no main key: %s in %s' %(key, main_article_link_f))
+                with open('no_main_key.txt', 'a') as the_file:
+                    the_file.write(key+' not in '+main_article_link_f+'\n')
+                continue
+            article_main_map = {}
+            for i_key in inside_map.keys():
+                print('--start inside:%s'%(i_key))
+                if(not i_key in main_article_link_json[key].keys()):
+                    print('no inside key: %s, %s in %s' %(key, i_key, main_article_link_f))
+                    with open('no_main_key.txt', 'a') as the_file:
+                        the_file.write(key+', '+i_key+' not in '+main_article_link_f+'\n')
+                    continue
+                article_links = main_article_link_json[key][i_key]
+                article_json_list = []
+                for article_link in article_links:
+                    tmp = get_article_contect(article_link)
+                    if(tmp):
+                        print('%s ok' % (article_link))
+                        article_json_list.append(tmp)
+                    else:
+                        print('!! %s fail' % (article_link))
+                        with open('article_content_fail.txt', 'a') as the_file:
+                            the_file.write(article_link+'\n')
+                if(article_json_list):
+                    if(not key in article_main_map.keys()):
+                        article_main_map[key]={}
+                    article_main_map[key][i_key] = article_json_list
+                print('len(article_json_list):%d' % (len(article_json_list)))
+            with open(get_main_json_filename(main_article_root, 'article', key), 'w', encoding='utf8') as outfile:
+                json.dump(article_main_map, outfile, ensure_ascii=False)
+        else:
+            print('no main file: %s' %(main_article_link_f))
+
+def main():
+    download_map_file = 'data/download_map.json'
+    article_link_map_root = 'data/article_link/'
+    main_article_root = 'data/main_article_file/'
+
+    if(len(sys.argv) < 2):
+        print('no method, pls use \'map\',\'link\' or \'content\'')
+        return
+    method = sys.argv[1]
+    if(method == 'map'):
+        download_map2json(download_map_file)
+    elif(method == 'link'):
+        part_list=[['儿科学','小儿感冒'],['骨外科','足部骨折'],['皮肤性病科','皮肤过敏'],['中医学','月经失调'],['康复医学科','颈椎病'],['营养科','营养不良']]
+        if(len(sys.argv) < 3):
+            print('pls set part number(0~5)')
+        else:
+            i=int(sys.argv[2])
+            countinue_main = part_list[i][0]
+            countinue_inside = part_list[i][1]
+            if(i+1 >= len(part_list)):
+                end_main = None
+                end_inside = None
+            else:
+                end_main = part_list[i+1][0]
+                end_inside = part_list[i+1][1]
+            get_article_from_download_map(download_map_file, article_link_map_root, countinue_main, countinue_inside, end_main, end_inside)
+    elif(method == 'content'):
+        get_article_content_from_link(download_map_file, article_link_map_root, main_article_root)
+    else:
+        print('unkown method, pls use \'map\',\'link\' or \'content\'')
+
+if __name__ == "__main__":
+    main()
