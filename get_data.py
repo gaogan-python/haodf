@@ -132,6 +132,8 @@ def get_article_from_download_map(download_map_file, json_root_name, countinue_m
         print('start main:%s'%(key))
         for i_key in inside_map.keys():
             t_href = inside_map[i_key]
+            if (not countinue_main):
+                start_download_flag = True
             if (not start_download_flag) and (key == countinue_main) and (i_key == countinue_inside):
                 start_download_flag = True
             if (start_download_flag) and (key == end_main) and (i_key == end_inside):
@@ -170,8 +172,8 @@ def get_article_from_download_map(download_map_file, json_root_name, countinue_m
                     json.dump(article_link_map, outfile, ensure_ascii=False)
             else:
                 print('---%s no article_link_map' % (key))
-        # if(test_flag):
-        #     break
+        if(test_flag):
+            break
 def get_article_contect(target_url):
     resp = connect_method(target_url)
     result_map = {}
@@ -205,7 +207,6 @@ def get_article_contect(target_url):
         return False
 def get_article_content_from_link(download_map_file, article_link_map_root, main_article_root):
     download_map = {}
-    start_download_flag = False
     with open(download_map_file, 'r', encoding='utf8') as infile:
         download_map = json.load(infile)
     for key in download_map.keys():
@@ -267,14 +268,20 @@ def main():
             print('pls set part number(0~5)')
         else:
             i=int(sys.argv[2])
-            countinue_main = part_list[i][0]
-            countinue_inside = part_list[i][1]
-            if(i+1 >= len(part_list)):
+            if(i == -1):
+                countinue_main = None
+                countinue_inside = None
                 end_main = None
                 end_inside = None
             else:
-                end_main = part_list[i+1][0]
-                end_inside = part_list[i+1][1]
+                countinue_main = part_list[i][0]
+                countinue_inside = part_list[i][1]
+                if(i+1 >= len(part_list)):
+                    end_main = None
+                    end_inside = None
+                else:
+                    end_main = part_list[i+1][0]
+                    end_inside = part_list[i+1][1]
             get_article_from_download_map(download_map_file, article_link_map_root, countinue_main, countinue_inside, end_main, end_inside)
     elif(method == 'content'):
         get_article_content_from_link(download_map_file, article_link_map_root, main_article_root)
