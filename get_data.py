@@ -7,6 +7,8 @@ import sys
 import os.path
 
 main_href = 'https://www.haodf.com'
+link_file_root = 'article_link_map'
+content_file_root = 'article'
 test_flag = False
 def connect_method(target_url):
     timeout = 10
@@ -129,7 +131,7 @@ def get_article_from_download_map(download_map_file, json_root_name):
         article_link_map = {}
         inside_map = download_map[key]
         print('**start main:%s'%(key))
-        if(not os.path.isfile(get_main_json_filename(json_root_name, 'article_link_map', key))):
+        if(not os.path.isfile(get_main_json_filename(json_root_name, link_file_root, key))):
             for i_key in inside_map.keys():
                 t_href = inside_map[i_key]
                 print('--start inside:%s, href:%s'%(i_key,t_href))
@@ -160,7 +162,7 @@ def get_article_from_download_map(download_map_file, json_root_name):
                 print('**jump main:%s'%(key))
             continue
         if(article_link_map):
-            with open(get_main_json_filename(json_root_name, 'article_link_map', key), 'w', encoding='utf8') as outfile:
+            with open(get_main_json_filename(json_root_name, link_file_root, key), 'w', encoding='utf8') as outfile:
                 json.dump(article_link_map, outfile, ensure_ascii=False)
         else:
             print('---%s no article_link_map' % (key))
@@ -204,7 +206,7 @@ def get_article_content_from_link(download_map_file, article_link_map_root, main
     for key in download_map.keys():
         inside_map = download_map[key]
         print('start main:%s'%(key))
-        main_article_link_f = get_main_json_filename(article_link_map_root, 'article_link_map', key)
+        main_article_link_f = get_main_json_filename(article_link_map_root, link_file_root, key)
         if(os.path.isfile(main_article_link_f)):
             main_article_link_json = ''
             with open(main_article_link_f, 'r', encoding='utf8') as infile:
@@ -213,6 +215,10 @@ def get_article_content_from_link(download_map_file, article_link_map_root, main
                 print('no main key: %s in %s' %(key, main_article_link_f))
                 with open('no_main_key.txt', 'a') as the_file:
                     the_file.write(key+' not in '+main_article_link_f+'\n')
+                continue
+            content_file_name = get_main_json_filename(main_article_root, content_file_root, key)
+            if(os.path.isfile(content_file_name)): # have content file (downloaded in the past)
+                print('--jump %s' % (content_file_name))
                 continue
             article_main_map = {}
             for i_key in inside_map.keys():
@@ -232,18 +238,29 @@ def get_article_content_from_link(download_map_file, article_link_map_root, main
                     else:
                         print('!! %s fail' % (article_link))
                         with open('article_content_fail.txt', 'a') as the_file:
-                            the_file.write(article_link+'\n')
+                            the_file.write(key+','+i_key+','+article_link+'\n')
+                    if(test_flag):
+                        break
                 if(article_json_list):
                     if(not key in article_main_map.keys()):
                         article_main_map[key]={}
                     article_main_map[key][i_key] = article_json_list
                 print('len(article_json_list):%d' % (len(article_json_list)))
-            with open(get_main_json_filename(main_article_root, 'article', key), 'w', encoding='utf8') as outfile:
-                json.dump(article_main_map, outfile, ensure_ascii=False)
+                if(test_flag):
+                    break
+            if(article_main_map):
+                print('write %s' % (content_file_name))
+                with open(content_file_name, 'w', encoding='utf8') as outfile:
+                    json.dump(article_main_map, outfile, ensure_ascii=False)
+            else:
+                print('!! no article_main_map: %s, %s' % (key, i_key))
         else:
-            print('no main file: %s' %(main_article_link_f))
+            print('!! no main file: %s' %(main_article_link_f))
+        # if(test_flag):
+        #     break
 
 def main():
+    global test_flag
     download_map_file = 'data/download_map.json'
     article_link_map_root = 'data/article_link/'
     main_article_root = 'data/main_article_file/'
@@ -251,6 +268,14 @@ def main():
     if(len(sys.argv) < 2):
         print('no method, pls use \'map\',\'link\' or \'content\'')
         return
+    if(len(sys.argv) >= 3):
+        if(not int(sys.argv[2]) == 0):
+            test_flag = True # test mode
+    if test_flag:
+        print('test mode')
+    else:
+        print('origin mode')
+
     method = sys.argv[1]
     if(method == 'map'):
         download_map2json(download_map_file)
@@ -286,7 +311,8 @@ def main():
         get_article_content_from_link(download_map_file, article_link_map_root, main_article_root)
     else:
         print('unkown method, pls use \'map\',\'link\' or \'content\'')
+    print('-----code end-----')
 
 if __name__ == "__main__":
     main()
-    # python3 get_data.py link >> log_0.txt &
+    # python3 get_data.py link 0 >> log_0.txt &

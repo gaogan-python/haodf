@@ -1,0 +1,3 @@
+*.pyc
+article_*.json
+article_link_map_*.json
