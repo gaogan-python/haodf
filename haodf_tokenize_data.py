@@ -3,6 +3,7 @@ import requests
 import re
 import time
 import math
+import os
 from gensim.models import Word2Vec
 from multiprocessing import Process
 import multiprocessing as mp
@@ -20,7 +21,7 @@ def run_p(sentences, cut_i, out_file_name):
 
     payload = {
         'sentences': sentences,
-        'language': 'tw'
+        'language': 'cn'
     }
     # print('sentences len: %d' % (len(sentences)))
 
@@ -46,29 +47,14 @@ def run_p(sentences, cut_i, out_file_name):
     print('save file: %s' % (out_file_name))
     return cut_i,time.time()-start_cut_t
 
-def main():
-    ### health-articles-2.json
-    '''
-    target_file = 'health-articles-2.json'
-    tokenize_file = 'tokenize_data.json'
-    with open(target_file) as fp:
-        text = fp.read()
-
-    jsonfile = json.loads(text)
-    articles = jsonfile['articles']
-    #print(articles[-1])
-
-    contents = [article['content'] for article in articles ]
-    #print(contents[0])
-
-    filtering = re.compile('[a-zA-Z0-9.:?]')
-    #print (" ".join([str(len(content)) for content in contents[-10:-1]]))
-    contents = [ filtering.sub('', content) for content in contents ]
-    #print (" ".join([str(len(content)) for content in contents[-10:-1]]))
-    '''
-    ### wiki_zh_tw.txt
-    target_file = './data/article_combine_result.txt'
-    tokenize_file = './tokenize_haodf/article_tokenize'
+target_file = './data/article_combine_result.txt'
+tokenize_folder = './data/tokenize_haodf/article_tokenize'
+model_file = './data/w2v_haodf.bin'
+cut_num = 300
+def tokenize_flow():
+    global target_file
+    global tokenize_folder
+    global cut_num
     contents = []
     filtering = re.compile('[a-zA-Z0-9.:?]')
     with open(target_file,'r') as f:
@@ -84,14 +70,13 @@ def main():
 
     # contents = contents[-10:]
     
-    cut_num = 300
     start_i = 0
     start_t = time.time()
     pool = mp.Pool(processes=2)
     for cut_i in range(cut_num):
         end_i = math.ceil(len(contents)*(cut_i+1)/cut_num)
         sentences = contents[start_i:end_i]
-        out_file_name = tokenize_file+'_'+str(cut_i)+'.json'
+        out_file_name = tokenize_folder+'_'+str(cut_i)+'.json'
 
         # run_p(sentences, cut_i, out_file_name)
         # arguments_list = [sentences, cut_i, out_file_name]
@@ -105,43 +90,74 @@ def main():
     pool.close()
     pool.join()
     print('total Tokenize takes %f seconds.' % (time.time()-start_t))
-    ###
-    # request by each article, don't use this.(it will be slower than request once)
-    '''
-    now_i = 0
-    total_start_t = time.time()
-    for content in contents:
-        payload = {
-        'sentences': [content],
-        'language': 'tw'
-        }
 
-        #print(content)
-        start_t = time.time()
-        res = requests.post(TOKENIZER_URL, headers=headers, data=json.dumps(payload))
-        #print(res.json())
-        response = res.json()
-        if 'data' in response:
-            result = response['data']
-            if len(result) > 0 :
-                results.extend(result)
-        now_i = now_i+1
-        print('request : '+str(now_i)+'/'+str(len(contents)))
-        print('Tokenize takes '+ str(time.time()-start_t)+' seconds.')
-    print('Tokenize total takes '+ str(time.time()-total_start_t)+' seconds.')
-    '''
-    ###
+def tokenize_files_w2v_flow():
+    global tokenize_folder
+    global cut_num
+    model = None
 
-    # print('result, contents : ',len(results), ', ', len(contents))
+    with open('./data/stopword_cn.txt') as fp:
+        stop_words = fp.readlines()
+    stop_words = [ stop_word.replace('\n', '') for stop_word in stop_words ]
+    all_file_result = [] 
+    for load_i in range(cut_num):
+        out_file_name = tokenize_folder+'_'+str(load_i)+'.json'
+        if(not os.path.exists(out_file_name)):
+            print('no %s' % (out_file_name))
+            continue
+        file_result = {}
+        with open(out_file_name, 'r') as outfile:
+            file_result = json.load(outfile)
+        # results = [x for x in file_result if not x is None]
+        # # for row_i in range(len(file_result)):
+        # #     file_row = file_result[row_i]
+        # #     if file_row is None:
+        # #         print("%d, %d is None" % (load_i, row_i))
+        # # print(len(file_result))
+        # results = [
+        #     [ token 
+        #     for token in tokens 
+        #     if token not in stop_words
+        #     ]
+        #     for tokens in results
+        # ]
+        results = []
+        for row_i in range(len(file_result)):
+            tokens = file_result[row_i]
+            if not tokens is None:
+                token_ns = []
+                for token in tokens:
+                    if token not in stop_words:
+                        token_ns.append(token)
+                if(len(token_ns) !=0 ):
+                    all_file_result.append(token_ns)
+                    # results.append(token_ns)
+                # model = continue_train_w2v(results, model)
+            else:
+                print("%d, %d is None" % (load_i, row_i))
+    model = continue_train_w2v(all_file_result, model)
+    print('write %s' % (model_file))
+    model.save(model_file)
 
-    # outfile = [ ' '.join(result) for result in results ]
-    # with open('tokenize_data.txt', 'w') as fp:
-    #     fp.write('\n'.join(outfile))
-    '''
-    with open(tokenize_file, 'w') as outfile:
-        json.dump(results, outfile)
-    outfile.close()
-    print('save file: %s' % (tokenize_file))
-    '''
+def continue_train_w2v(new_data, model):
+    if not model is None:
+        # new_data: more sentences
+        # total_examples: number of additional sentence
+        # epochs: provide your current epochs. model.epochs is ok 
+        print('update model')
+        print(model.train(new_data, total_examples=len(new_data), epochs=model.epochs))
+        return model
+    else:
+        print('create model')
+        return Word2Vec(new_data, size=400, window=5, min_count=5, workers=4)
+
 if __name__ == "__main__":
-    main()
+    # tokenize_flow()
+    tokenize_files_w2v_flow()
+
+    # w2v_tmp_model = Word2Vec.load('./data/w2v_haodf_tmp.bin')
+    # w2v_model = Word2Vec.load('./data/w2v_haodf.bin')
+    # test_word = w2v_tmp_model.wv.index2word[10]
+    # print(test_word)
+    # print(w2v_tmp_model.wv.most_similar([test_word], topn=10))
+    # print(w2v_model.wv.most_similar([test_word], topn=10))
