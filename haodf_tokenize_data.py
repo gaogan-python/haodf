@@ -14,7 +14,7 @@ def cut_too_long(sentence ,long_target):
     sentence = sentence.strip()
     remaining_sentance = sentence[cut_ind:]
     short_sentence_list = []
-    print('long_target = %d' % (long_target))
+    # print('long_target = %d' % (long_target))
     while (True):
         search_ind = cut_ind+long_target
         search_sentance = sentence[search_ind:]
@@ -42,28 +42,33 @@ def run_p(sentences, cut_i, out_file_name):
     headers = { 'content-type': 'application/json' }
 
     long_target = 500
-    short_sentences = cut_too_long(sentences, long_target)
-
+    short_sentences = []
+    for sentence in sentences:
+        short_results = cut_too_long(sentence, long_target)
+        short_sentences.extend(short_results)
+    print('len(short_sentences):%d' % (len(short_sentences)))
+    # print(short_sentences[0])
+    # print(short_sentences[-1])
     result_tmp = []
     start_cut_t = time.time()
-    for short_sentence in short_sentences:
-        payload = {
-            'sentences': short_sentence,
-            'language': 'cn'
-        }
-        # print('sentences len: %d' % (len(sentences)))
-        
-        res = requests.post(TOKENIZER_URL, headers=headers, data=json.dumps(payload))
-        response = res.json()
-        # print(response)
 
-        if 'data' in response:
-            result = response['data']
-            # print(result)
-            if len(result) > 0 :
-                result_tmp.extend(result)
-        else:
-            print(response)
+    payload = {
+        'sentences': short_sentences,
+        'language': 'cn'
+    }
+    # print('sentences len: %d' % (len(sentences)))
+
+    res = requests.post(TOKENIZER_URL, headers=headers, data=json.dumps(payload))
+    response = res.json()
+    # print(response)
+
+    if 'data' in response:
+        result = response['data']
+        # print(result)
+        if len(result) > 0 :
+            result_tmp.extend(result)
+    else:
+        print(response)
     print('len(result_tmp): %d' % (len(result_tmp)))
     print('cut_%d Tokenize takes %f seconds.' % (cut_i,time.time()-start_cut_t))
 
@@ -100,7 +105,7 @@ def tokenize_flow():
     start_t = time.time()
     pool = mp.Pool(processes=2)
     for cut_i in range(cut_num):
-        cut_i = 20
+        # cut_i = 20
         end_i = math.ceil(len(contents)*(cut_i+1)/cut_num)
         sentences = contents[start_i:end_i]
         out_file_name = tokenize_folder+'_'+str(cut_i)+'.json'
@@ -113,8 +118,8 @@ def tokenize_flow():
         print('apply_async request %d , start_i %d, end_i %d' % (cut_i, start_i, end_i))
         res = run_p(sentences, cut_i, out_file_name)
         start_i = end_i
-        if cut_i == 20:
-            break
+        # if cut_i == 20:
+        #     break
     pool.close()
     pool.join()
     print('total Tokenize takes %f seconds.' % (time.time()-start_t))
