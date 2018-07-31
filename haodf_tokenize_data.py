@@ -34,7 +34,7 @@ def run_p(sentences, cut_i, out_file_name):
     # sentences = arguments_list[0]
     # cut_i = arguments_list[1]
     # out_file_name = arguments_list[2]
-    
+
     ## GO TOKENIZER
     # TOKENIZER_URL = 'http://localhost:8002/tokenize'
     TOKENIZER_URL = 'http://192.168.10.108:8002/tokenize'
@@ -100,13 +100,18 @@ def tokenize_flow():
     # request once, this will be more faster than below.(tokenize service has parallelization)
 
     # contents = contents[-10:]
-    
+
     start_i = 0
     start_t = time.time()
     pool = mp.Pool(processes=2)
+    start_file_num = 18
     for cut_i in range(cut_num):
-        # cut_i = 20
         end_i = math.ceil(len(contents)*(cut_i+1)/cut_num)
+        if cut_i < start_file_num:
+            start_i = end_i
+            print('--jump cut_%d' %(cut_i))
+            continue
+        print('start cut_%d' % (cut_i))
         sentences = contents[start_i:end_i]
         out_file_name = tokenize_folder+'_'+str(cut_i)+'.json'
 
@@ -132,7 +137,7 @@ def tokenize_files_w2v_flow():
     with open('./data/stopword_cn.txt') as fp:
         stop_words = fp.readlines()
     stop_words = [ stop_word.replace('\n', '') for stop_word in stop_words ]
-    all_file_result = [] 
+    all_file_result = []
     total_i = 0
     for load_i in range(cut_num):
         out_file_name = tokenize_folder+'_'+str(load_i)+'.json'
